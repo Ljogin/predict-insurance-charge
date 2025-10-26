@@ -1,103 +1,87 @@
-# app.py — Life Insurance Premium Predictor
-# v1: Formularz
-# v2: Model ML
-# v3: Sugestie
-
+# app.py — Life Insurance Premium Predictor (PyCaret >=3.0)
 import streamlit as st
 import pandas as pd
 import os
 from pycaret.datasets import get_data
-from pycaret.regression import RegressionExperiment, load_model, save_model, predict_model
+from pycaret.regression import RegressionExperiment, load_model, save_model
 
 st.set_page_config(page_title="Life Insurance Predictor", page_icon="💰", layout="centered")
 
 st.title("💰 Life Insurance Premium Predictor")
-st.caption("Aplikacja przewiduje miesięczną opłatę za ubezpieczenie na życie na podstawie danych demograficznych (PyCaret).")
+st.caption("Przewidywanie miesięcznej opłaty za ubezpieczenie na życie (PyCaret)")
 
-# -------------------------------
-# v1: Formularz danych użytkownika
-# -------------------------------
+# --------------------------------
+# Formularz użytkownika
+# --------------------------------
 st.header("1️⃣ Dane klienta")
 
 col1, col2 = st.columns(2)
 with col1:
-    age = st.number_input("Wiek", min_value=18, max_value=100, value=30)
+    age = st.number_input("Wiek", 18, 100, 30)
     sex = st.selectbox("Płeć", ["male", "female"])
-    bmi = st.number_input("Wskaźnik BMI (waga / wzrost²)", min_value=10.0, max_value=60.0, value=25.0)
-    children = st.number_input("Liczba dzieci", min_value=0, max_value=10, value=0, step=1)
+    children = st.number_input("Liczba dzieci", 0, 10, 0)
 with col2:
     smoker = st.selectbox("Czy palacz?", ["yes", "no"])
     region = st.selectbox("Region", ["southwest", "southeast", "northwest", "northeast"])
-    height = st.number_input("Wzrost [cm]", min_value=120, max_value=220, value=175)
-    weight = st.number_input("Waga [kg]", min_value=40, max_value=200, value=70)
+    height = st.number_input("Wzrost [cm]", 120, 220, 175)
+    weight = st.number_input("Waga [kg]", 40, 200, 70)
 
-# automatyczne przeliczenie BMI
-if bmi == 25.0 and height and weight:
-    bmi = round(weight / ((height / 100) ** 2), 1)
+bmi = round(weight / ((height / 100) ** 2), 1)
 
-# dane klienta
-user_data = pd.DataFrame({
-    "age": [age],
-    "sex": [sex],
-    "bmi": [bmi],
-    "children": [children],
-    "smoker": [smoker],
-    "region": [region]
-})
-st.write("📋 Dane klienta:")
+user_data = pd.DataFrame([{
+    "age": age,
+    "sex": sex,
+    "bmi": bmi,
+    "children": children,
+    "smoker": smoker,
+    "region": region
+}])
+
+st.write("📋 Dane klienta")
 st.dataframe(user_data, use_container_width=True)
 
-# -------------------------------
-# v2: Model ML (PyCaret)
-# -------------------------------
+# --------------------------------
+# Trening modelu (jeśli brak)
+# --------------------------------
 st.header("2️⃣ Model ML – przewidywanie opłaty")
 
 model_path = "insurance_model"
+exp = RegressionExperiment()
 
-try:
-    # próba załadowania modelu
-    exp = RegressionExperiment()
-    model = exp.load_model(model_path)
-except Exception:
-    # jeśli nie istnieje, trenuj model
+if not os.path.exists(model_path + ".pkl"):
     with st.spinner("Trening modelu ML (PyCaret)..."):
         data = get_data("insurance")
-        exp = RegressionExperiment()
-        exp.setup(
-            data=data,
-            target="charges",
-            session_id=123,
-            log_experiment=False,
-            silent=True,
-            verbose=False,
-        )
+        exp.setup(data=data, target="charges", session_id=123)
         model = exp.compare_models(sort="R2")
         exp.save_model(model, model_path)
-    st.success("Model został wytrenowany i zapisany.")
+    st.success("✅ Model wytrenowany i zapisany.")
+else:
+    model = exp.load_model(model_path)
+    st.info("📦 Załadowano istniejący model z pliku.")
 
-# -------------------------------
-# Predykcja i wynik
-# -------------------------------
+# --------------------------------
+# Predykcja
+# --------------------------------
 if st.button("🔮 Przewiduj opłatę"):
     with st.spinner("Przewidywanie..."):
-        prediction = exp.predict_model(model, data=user_data)
-        charge = float(prediction["prediction_label"].iloc[0])
-        st.success(f"💵 Przewidywana miesięczna opłata: **{charge:.2f} USD**")
+        pred = exp.predict_model(model, data=user_data)
+        result = float(pred["prediction_label"].iloc[0])
+        st.success(f"💵 Przewidywana miesięczna opłata: **{result:.2f} USD**")
 
-        # -------------------------------
+        # --------------------------------
         # v3: Sugestie optymalizacji
-        # -------------------------------
+        # --------------------------------
         st.header("3️⃣ Sugestie, jak obniżyć opłatę")
         tips = []
         if smoker == "yes":
-            tips.append("🚭 Rzucenie palenia znacznie obniży składkę – palacze płacą nawet 2–3x więcej.")
+            tips.append("🚭 Rzucenie palenia znacznie obniży składkę – palacze płacą nawet 2–3× więcej.")
         if bmi > 30:
-            tips.append("⚖️ Zmniejszenie BMI poniżej 25 znacząco poprawia ocenę ryzyka.")
+            tips.append("⚖️ Redukcja BMI poniżej 25 znacząco zmniejsza ryzyko.")
         if age < 25:
             tips.append("🎓 Młodsze osoby mogą skorzystać z planów studenckich lub rodzinnych.")
         if children > 3:
-            tips.append("👨‍👩‍👧‍👦 Ubezpieczenia rodzinne często są tańsze przy wspólnych polisach.")
+            tips.append("👨‍👩‍👧‍👦 Ubezpieczenia rodzinne są tańsze przy wspólnych polisach.")
         if not tips:
-            tips.append("✅ Twoje dane wyglądają dobrze! Trudno będzie znacząco obniżyć składkę.")
+            tips.append("✅ Twoje dane wyglądają dobrze – trudno będzie obniżyć składkę.")
         for t in tips:
             st.markdown(f"- {t}")
