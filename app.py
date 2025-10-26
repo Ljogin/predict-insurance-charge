@@ -52,7 +52,7 @@ st.dataframe(user_data, use_container_width=True)
 # -------------------------------
 st.header("2️⃣ Model ML – przewidywanie opłaty")
 
-model_path = "insurance_model.pkl"
+model_path = "insurance_model"
 
 try:
     # próba załadowania modelu
