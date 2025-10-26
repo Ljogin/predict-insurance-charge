@@ -52,7 +52,7 @@ if not os.path.exists(model_path + ".pkl"):
     with st.spinner("Trening modelu ML (PyCaret)..."):
         data = get_data("insurance")
         exp.setup(data=data, target="charges", session_id=123)
-        model = exp.compare_models(sort="R2")
+        model = exp.create_model("lr")  # najprostszy i najszybszy
         exp.save_model(model, model_path)
     st.success("✅ Model wytrenowany i zapisany.")
 else:
