@@ -7,6 +7,7 @@
 import streamlit as st
 from pycaret.datasets import get_data
 from pycaret.regression import setup, compare_models, predict_model, save_model, load_model
+from pycaret.regression import RegressionExperiment
 import pandas as pd
 import os
 
@@ -59,15 +60,16 @@ model_path = "insurance_model.pkl"
 if not os.path.exists(model_path):
     with st.spinner("Trening modelu ML (PyCaret)..."):
         data = get_data("insurance")
-        s = setup(
-            data,
+        exp = RegressionExperiment()
+        exp.setup(
+            data=data,
             target="charges",
             session_id=123,
             silent=True,
             verbose=False,
         )
-        best_model = compare_models(sort="R2")
-        save_model(best_model, "insurance_model")
+        best_model = exp.compare_models(sort="R2")
+        exp.save_model(best_model, "insurance_model")
     st.success("Model został wytrenowany i zapisany.")
 else:
     best_model = load_model("insurance_model")
