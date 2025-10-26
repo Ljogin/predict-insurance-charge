@@ -1,15 +1,13 @@
-# File: app.py
-# Streamlit + PyCaret – Life Insurance Premium Predictor
-# v1: Formularz danych klienta
-# v2: Model ML PyCaret (dataset insurance)
-# v3: Sugestie optymalizacji
+# app.py — Life Insurance Premium Predictor
+# v1: Formularz
+# v2: Model ML
+# v3: Sugestie
 
 import streamlit as st
-from pycaret.datasets import get_data
-from pycaret.regression import setup, compare_models, predict_model, save_model, load_model
-from pycaret.regression import RegressionExperiment
 import pandas as pd
 import os
+from pycaret.datasets import get_data
+from pycaret.regression import RegressionExperiment, load_model, save_model, predict_model
 
 st.set_page_config(page_title="Life Insurance Predictor", page_icon="💰", layout="centered")
 
@@ -33,11 +31,11 @@ with col2:
     height = st.number_input("Wzrost [cm]", min_value=120, max_value=220, value=175)
     weight = st.number_input("Waga [kg]", min_value=40, max_value=200, value=70)
 
-# Przelicz BMI, jeśli użytkownik poda wzrost/wagę zamiast BMI
+# automatyczne przeliczenie BMI
 if bmi == 25.0 and height and weight:
     bmi = round(weight / ((height / 100) ** 2), 1)
 
-# Dane w formie ramki
+# dane klienta
 user_data = pd.DataFrame({
     "age": [age],
     "sex": [sex],
@@ -46,7 +44,6 @@ user_data = pd.DataFrame({
     "smoker": [smoker],
     "region": [region]
 })
-
 st.write("📋 Dane klienta:")
 st.dataframe(user_data, use_container_width=True)
 
@@ -57,7 +54,12 @@ st.header("2️⃣ Model ML – przewidywanie opłaty")
 
 model_path = "insurance_model.pkl"
 
-if not os.path.exists(model_path):
+try:
+    # próba załadowania modelu
+    exp = RegressionExperiment()
+    model = exp.load_model(model_path)
+except Exception:
+    # jeśli nie istnieje, trenuj model
     with st.spinner("Trening modelu ML (PyCaret)..."):
         data = get_data("insurance")
         exp = RegressionExperiment()
@@ -65,19 +67,21 @@ if not os.path.exists(model_path):
             data=data,
             target="charges",
             session_id=123,
+            log_experiment=False,
             silent=True,
             verbose=False,
         )
-        best_model = exp.compare_models(sort="R2")
-        exp.save_model(best_model, "insurance_model")
+        model = exp.compare_models(sort="R2")
+        exp.save_model(model, model_path)
     st.success("Model został wytrenowany i zapisany.")
-else:
-    best_model = load_model("insurance_model")
 
+# -------------------------------
+# Predykcja i wynik
+# -------------------------------
 if st.button("🔮 Przewiduj opłatę"):
     with st.spinner("Przewidywanie..."):
-        prediction = predict_model(best_model, data=user_data)
-        charge = float(prediction["Label"].iloc[0])
+        prediction = exp.predict_model(model, data=user_data)
+        charge = float(prediction["prediction_label"].iloc[0])
         st.success(f"💵 Przewidywana miesięczna opłata: **{charge:.2f} USD**")
 
         # -------------------------------
